@@ -21,7 +21,11 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+#include "can.h"
+#include "VL53L1X_api.h"
+#include "vl53l1_platform.h"
+#include "i2c.h"
+#include <stdio.h>
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -42,6 +46,8 @@
 /* Private variables ---------------------------------------------------------*/
 CAN_HandleTypeDef hcan;
 
+I2C_HandleTypeDef hi2c1;
+
 UART_HandleTypeDef huart2;
 
 /* USER CODE BEGIN PV */
@@ -53,6 +59,7 @@ void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_USART2_UART_Init(void);
 static void MX_CAN_Init(void);
+static void MX_I2C1_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
@@ -60,22 +67,18 @@ static void MX_CAN_Init(void);
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
 
-void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan) {
-    CAN_RxHeaderTypeDef RxHeader;
-    uint8_t RxData[8];
 
-    if (HAL_CAN_GetRxMessage(hcan, CAN_RX_FIFO0, &RxHeader, RxData) == HAL_OK) {
-
-        if(RxHeader.StdId == 0x11) {
-
-
-
-        }
-    }
+int __io_putchar(int ch)
+{
+ if ( ch == '\n' )
+	 HAL_UART_Transmit(&huart2, (uint8_t*)&"\r", 1, HAL_MAX_DELAY);
+ HAL_UART_Transmit(&huart2, (uint8_t*)&ch, 1, HAL_MAX_DELAY);
+ return ch;
 }
 
-
-
+//  DET_CMD_OP, DET_CMD_STANDBY, DET_CMD_RESET
+volatile uint8_t g_SystemMode =  DET_CMD_OP ;
+float tof_dis;
 /* USER CODE END 0 */
 
 /**
@@ -108,62 +111,15 @@ int main(void)
   MX_GPIO_Init();
   MX_USART2_UART_Init();
   MX_CAN_Init();
+  MX_I2C1_Init();
   /* USER CODE BEGIN 2 */
 
+  //1. can Init
+  canInit();
+  //2. pwm Init
 
-  // can filter setting
-  CAN_FilterTypeDef sFilterConfig;
-
-  sFilterConfig.FilterBank = 0;
-  sFilterConfig.FilterMode = CAN_FILTERMODE_IDMASK;
-  sFilterConfig.FilterScale = CAN_FILTERSCALE_32BIT;
-  sFilterConfig.FilterIdHigh = 0x0000;
-  sFilterConfig.FilterIdLow = 0x0000;
-  sFilterConfig.FilterMaskIdHigh = 0x0000; // 0?���??? ?���??? 모든 ID�??? ?��?�� (Wildcard)
-  sFilterConfig.FilterMaskIdLow = 0x0000;
-  sFilterConfig.FilterFIFOAssignment = CAN_RX_FIFO0;
-  sFilterConfig.FilterActivation = ENABLE;
-
-
-  // can filter start
-  if (HAL_CAN_ConfigFilter(&hcan, &sFilterConfig) != HAL_OK) {
-        Error_Handler();
-    }
-
-  // can start
-  HAL_CAN_Start(&hcan);
-
-  // can it start
-  HAL_CAN_ActivateNotification(&hcan, CAN_IT_RX_FIFO0_MSG_PENDING);
-
-
-
-  // ?��?�� ?��?�� ?��?��
-  CAN_TxHeaderTypeDef TxHeader;
-  uint8_t TxData[8];
-  uint32_t TxMailbox;
-
-  TxHeader.StdId = 0x1;        // 보낼 ID
-  TxHeader.RTR = CAN_RTR_DATA;
-  TxHeader.IDE = CAN_ID_STD;
-  TxHeader.DLC = 8;              // ?��?��?�� 길이 (8바이?��)
-  TxHeader.TransmitGlobalTime = DISABLE;
-
-  TxData[0] = 0x00; // 보낼 ?��?��?��?��...
-  TxData[1] = 0x01;
-  TxData[2] = 0x02;
-  TxData[3] = 0x03;
-
-  TxData[4] = 0x04;
-  TxData[5] = 0x05;
-  TxData[6] = 0x06;
-  TxData[7] = 0x07;
-  // ?��?��
-
-
-
-
-
+  //3. Ir Init
+  IrInit();
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -174,12 +130,33 @@ int main(void)
 
     /* USER CODE BEGIN 3 */
 
-	  if (HAL_CAN_AddTxMessage(&hcan, &TxHeader, TxData, &TxMailbox) != HAL_OK) {
-	        Error_Handler();
-	    }
+	  switch(g_SystemMode){
+	  case DET_CMD_OP: // ?��?�� 모드
+	  {
+		  // 1. run motor and IR Sensing
+		  tof_dis = Read_ToF_Sensor_Data();
+		  float current_angle_deg = 45.0f;
 
-	  HAL_Delay(500);
+		  // 2. x,y cal and send can.
+		  Calculate_Target_Position(tof_dis, current_angle_deg);
 
+		  HAL_Delay(30);
+		  break;
+	  }
+
+	  case DET_CMD_STANDBY : // ??�? 모드
+	  {
+
+
+		  break;
+	  }
+
+	  case DET_CMD_RESET : // 리셋 모드.
+	  {
+		  NVIC_SystemReset();
+		  break;
+	  }
+	  }
   }
   /* USER CODE END 3 */
 }
@@ -256,6 +233,40 @@ static void MX_CAN_Init(void)
   /* USER CODE BEGIN CAN_Init 2 */
 
   /* USER CODE END CAN_Init 2 */
+
+}
+
+/**
+  * @brief I2C1 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_I2C1_Init(void)
+{
+
+  /* USER CODE BEGIN I2C1_Init 0 */
+
+  /* USER CODE END I2C1_Init 0 */
+
+  /* USER CODE BEGIN I2C1_Init 1 */
+
+  /* USER CODE END I2C1_Init 1 */
+  hi2c1.Instance = I2C1;
+  hi2c1.Init.ClockSpeed = 100000;
+  hi2c1.Init.DutyCycle = I2C_DUTYCYCLE_2;
+  hi2c1.Init.OwnAddress1 = 0;
+  hi2c1.Init.AddressingMode = I2C_ADDRESSINGMODE_7BIT;
+  hi2c1.Init.DualAddressMode = I2C_DUALADDRESS_DISABLE;
+  hi2c1.Init.OwnAddress2 = 0;
+  hi2c1.Init.GeneralCallMode = I2C_GENERALCALL_DISABLE;
+  hi2c1.Init.NoStretchMode = I2C_NOSTRETCH_DISABLE;
+  if (HAL_I2C_Init(&hi2c1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN I2C1_Init 2 */
+
+  /* USER CODE END I2C1_Init 2 */
 
 }
 

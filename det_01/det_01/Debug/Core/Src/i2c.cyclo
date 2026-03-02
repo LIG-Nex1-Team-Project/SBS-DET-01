@@ -1,3 +1,0 @@
-i2c.c:14:7:Read_ToF_Sensor_Data	1
-i2c.c:31:7:Apply_EMA_Filter	1
-i2c.c:45:6:IrInit	1

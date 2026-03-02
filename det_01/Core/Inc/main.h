@@ -75,6 +75,17 @@ void Error_Handler(void);
 
 /* USER CODE BEGIN Private defines */
 
+
+// ?ƒ?ƒ‰ê¸? ? œ?–´ ëª…ë ¹ ?—´ê±°í˜•
+typedef enum {
+    DET_CMD_OP     = 0x01, // ?š´?š© ëª¨ë“œ
+    DET_CMD_STANDBY = 0x02, // ??ê¸? ëª¨ë“œ (?ƒ?ƒ‰ ?‹œ?‘)
+    DET_CMD_RESET  = 0x03  // ë¦¬ì…‹ (?ƒ?ƒ‰ ì¤‘ì?)
+} DetCommand_e;
+
+
+
+
 /* USER CODE END Private defines */
 
 #ifdef __cplusplus
