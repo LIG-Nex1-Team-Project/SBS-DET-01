@@ -1,3 +1,0 @@
-can.c:15:6:HAL_CAN_RxFifo0MsgPendingCallback	3
-can.c:29:9:Send_Target_Coordinate	2
-can.c:61:6:canInit	2
