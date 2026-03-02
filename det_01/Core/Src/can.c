@@ -6,7 +6,7 @@
  */
 
 #include "can.h"
-
+#include <stdio.h>
 
 
 extern CAN_HandleTypeDef hcan;
@@ -65,6 +65,7 @@ void Calculate_Target_Position(float distance_mm, float current_angle_deg)
 		test_x = x;
 		test_y = y;
 
+		printf("pos: %d, %d\n", x, y);
 		Send_Target_Coordinate(x,y);
 	}
 }
