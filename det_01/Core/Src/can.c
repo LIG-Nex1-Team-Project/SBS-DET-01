@@ -12,6 +12,9 @@
 extern CAN_HandleTypeDef hcan;
 extern uint8_t g_SystemMode;
 
+#define PI_CONV_FACTOR 3.141592/180;
+
+
 void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan) {
     CAN_RxHeaderTypeDef RxHeader;
     uint8_t RxData[8];
@@ -47,6 +50,25 @@ uint8_t Send_Target_Coordinate(float target_x , float target_y)
 
     return 1;
 }
+
+float test_x;
+float test_y;
+void Calculate_Target_Position(float distance_mm, float current_angle_deg)
+{
+	// 1.5m = 1500mm
+	if(distance_mm < 1500 && distance_mm > 0)
+	{
+		float thera_rad = current_angle_deg * PI_CONV_FACTOR;
+
+		float x = distance_mm * cos(thera_rad);
+		float y = distance_mm * sin(thera_rad);
+		test_x = x;
+		test_y = y;
+
+		Send_Target_Coordinate(x,y);
+	}
+}
+
 
 
 void canInit()

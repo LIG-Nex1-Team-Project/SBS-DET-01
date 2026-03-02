@@ -13,6 +13,7 @@
 
 void canInit();
 uint8_t Send_Target_Coordinate(float target_x , float target_y);
+void Calculate_Target_Position(float distance_mm,float current_angle_deg);
 
 typedef union {
     uint8_t buffer[8];

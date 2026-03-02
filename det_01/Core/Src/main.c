@@ -22,6 +22,10 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include "can.h"
+#include "VL53L1X_api.h"
+#include "vl53l1_platform.h"
+#include "i2c.h"
+#include <stdio.h>
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -42,6 +46,8 @@
 /* Private variables ---------------------------------------------------------*/
 CAN_HandleTypeDef hcan;
 
+I2C_HandleTypeDef hi2c1;
+
 UART_HandleTypeDef huart2;
 
 /* USER CODE BEGIN PV */
@@ -53,6 +59,7 @@ void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_USART2_UART_Init(void);
 static void MX_CAN_Init(void);
+static void MX_I2C1_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
@@ -61,9 +68,17 @@ static void MX_CAN_Init(void);
 /* USER CODE BEGIN 0 */
 
 
+int __io_putchar(int ch)
+{
+ if ( ch == '\n' )
+	 HAL_UART_Transmit(&huart2, (uint8_t*)&"\r", 1, HAL_MAX_DELAY);
+ HAL_UART_Transmit(&huart2, (uint8_t*)&ch, 1, HAL_MAX_DELAY);
+ return ch;
+}
+
 //  DET_CMD_OP, DET_CMD_STANDBY, DET_CMD_RESET
 volatile uint8_t g_SystemMode =  DET_CMD_OP ;
-
+float tof_dis;
 /* USER CODE END 0 */
 
 /**
@@ -96,6 +111,7 @@ int main(void)
   MX_GPIO_Init();
   MX_USART2_UART_Init();
   MX_CAN_Init();
+  MX_I2C1_Init();
   /* USER CODE BEGIN 2 */
 
   //1. can Init
@@ -103,8 +119,7 @@ int main(void)
   //2. pwm Init
 
   //3. Ir Init
-
-
+  IrInit();
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -116,26 +131,20 @@ int main(void)
     /* USER CODE BEGIN 3 */
 
 	  switch(g_SystemMode){
-	  case DET_CMD_OP: // 동작 모드
+	  case DET_CMD_OP: // ?��?�� 모드
 	  {
-		  // 1. 모터 돌리면서, IR 측정.
-		  float target_x = 1.123f;
-		  float target_y = 2.123f;
+		  // 1. run motor and IR Sensing
+		  tof_dis = Read_ToF_Sensor_Data();
+		  float current_angle_deg = 45.0f;
 
-		  // 2. 측정값 r,theta를 x,y로 변환.
+		  // 2. x,y cal and send can.
+		  Calculate_Target_Position(tof_dis, current_angle_deg);
 
-
-		  // 3. float x,y can send.
-		  if(!Send_Target_Coordinate(target_x ,target_y))
-		  {
-			  // error.
-		  }
-
-		  HAL_Delay(50);
+		  HAL_Delay(30);
 		  break;
 	  }
 
-	  case DET_CMD_STANDBY : // 대기 모드
+	  case DET_CMD_STANDBY : // ??�? 모드
 	  {
 
 
@@ -224,6 +233,40 @@ static void MX_CAN_Init(void)
   /* USER CODE BEGIN CAN_Init 2 */
 
   /* USER CODE END CAN_Init 2 */
+
+}
+
+/**
+  * @brief I2C1 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_I2C1_Init(void)
+{
+
+  /* USER CODE BEGIN I2C1_Init 0 */
+
+  /* USER CODE END I2C1_Init 0 */
+
+  /* USER CODE BEGIN I2C1_Init 1 */
+
+  /* USER CODE END I2C1_Init 1 */
+  hi2c1.Instance = I2C1;
+  hi2c1.Init.ClockSpeed = 100000;
+  hi2c1.Init.DutyCycle = I2C_DUTYCYCLE_2;
+  hi2c1.Init.OwnAddress1 = 0;
+  hi2c1.Init.AddressingMode = I2C_ADDRESSINGMODE_7BIT;
+  hi2c1.Init.DualAddressMode = I2C_DUALADDRESS_DISABLE;
+  hi2c1.Init.OwnAddress2 = 0;
+  hi2c1.Init.GeneralCallMode = I2C_GENERALCALL_DISABLE;
+  hi2c1.Init.NoStretchMode = I2C_NOSTRETCH_DISABLE;
+  if (HAL_I2C_Init(&hi2c1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN I2C1_Init 2 */
+
+  /* USER CODE END I2C1_Init 2 */
 
 }
 
