@@ -153,27 +153,29 @@ int main(void)
 	  {
 		  // 1. run motor and IR Sensing
 		  tof_dis = Read_ToF_Sensor_Data();
-//		  if(flag) {
-//			  __HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_2, ccr++);
-//		  } else {
-//			  __HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_2, ccr--);
-//		  }
-//
-//		  if(ccr >= SERVO_MAX)
-//		  {
-//			  flag = 0;
-//		  } else if(ccr <= SERVO_MIN)
-//		  {
-//			  flag = 1;
-//		  }
-//		  double angle = SG90_CCRToANGLE(ccr);
-//		  float current_angle_deg = angle;
+		  if(flag) {
+			  __HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_2, ccr);
+			  ccr += 10;
+		  } else {
+			  __HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_2, ccr);
+			  ccr -= 10;
+		  }
+
+		  if(ccr >= SERVO_MAX)
+		  {
+			  flag = 0;
+		  } else if(ccr <= SERVO_MIN)
+		  {
+			  flag = 1;
+		  }
+		  double angle = SG90_CCRToANGLE(ccr);
+		  float current_angle_deg = angle;
 
 		  // 2. x,y cal and send can.
 		  Calculate_Target_Position(tof_dis, 45.0);
 
 //		  printf("angle: %f\n", angle);
-		  HAL_Delay(30);
+		  HAL_Delay(300);
 		  break;
 	  }
 

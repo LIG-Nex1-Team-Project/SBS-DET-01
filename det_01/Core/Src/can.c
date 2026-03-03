@@ -7,12 +7,13 @@
 
 #include "can.h"
 #include <stdio.h>
+#include <math.h>
 
 
 extern CAN_HandleTypeDef hcan;
 extern uint8_t g_SystemMode;
 
-#define PI_CONV_FACTOR 3.141592/180;
+#define PI_CONV_FACTOR (3.141592/180)
 
 
 void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan) {
@@ -65,7 +66,7 @@ void Calculate_Target_Position(float distance_mm, float current_angle_deg)
 		test_x = x;
 		test_y = y;
 
-		printf("pos: %d, %d\n", x, y);
+		printf("pos: %f, %f\n", x, y);
 		Send_Target_Coordinate(x,y);
 	}
 }
