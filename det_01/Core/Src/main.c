@@ -54,7 +54,8 @@ TIM_HandleTypeDef htim3;
 UART_HandleTypeDef huart2;
 
 /* USER CODE BEGIN PV */
-
+//  DET_CMD_OP, DET_CMD_STANDBY, DET_CMD_RESET
+volatile uint8_t g_SystemMode = DET_CMD_INIT; // 시작은 0 (정지 상태)
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -80,8 +81,7 @@ int __io_putchar(int ch)
  return ch;
 }
 
-//  DET_CMD_OP, DET_CMD_STANDBY, DET_CMD_RESET
-volatile uint8_t g_SystemMode =  DET_CMD_OP ;
+
 float tof_dis;
 
 uint16_t SG90_CCRToANGLE(int CCR)
@@ -142,59 +142,74 @@ int main(void)
   int ccr = SERVO_MIN;
   int flag = 0;
   /* Infinite loop */
-  /* USER CODE BEGIN WHILE */
-  while (1)
-  {
-    /* USER CODE END WHILE */
+    /* USER CODE BEGIN WHILE */
+    while (1)
+    {
+        // 💡 switch 문이 이 while 루프 안으로 들어와야 실시간으로 모드를 체크합니다!
+        switch(g_SystemMode) {
+            // ---------------------------------------------------------
+            // CASE 0 & STANDBY: 아무것도 안 하거나 정지 상태일 때
+            // ---------------------------------------------------------
+            case DET_CMD_INIT:     // 초기 상태 (0)
+            case DET_CMD_STANDBY:  // 정지 버튼 (3)
+            {
+                // 정지 시 모터를 중앙(중립)으로 이동 (과부하 방지)
+                // 1500은 일반적인 SG90의 중립값입니다.
+                __HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_2, 1500);
+                break;
+            }
 
-    /* USER CODE BEGIN 3 */
-	  switch(g_SystemMode){
-	  case DET_CMD_OP: // ?��?�� 모드
-	  {
-		  // 1. run motor and IR Sensing
-		  tof_dis = Read_ToF_Sensor_Data();
-		  if(flag) {
-			  __HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_2, ccr);
-			  ccr += 10;
-		  } else {
-			  __HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_2, ccr);
-			  ccr -= 10;
-		  }
+            // ---------------------------------------------------------
+            // CASE 2: 탐색 시작 (Operation)
+            // ---------------------------------------------------------
+            case DET_CMD_OP:
+            {
+                // 1. 센서 데이터 읽기
+                tof_dis = Read_ToF_Sensor_Data();
 
-		  if(ccr >= SERVO_MAX)
-		  {
-			  flag = 0;
-		  } else if(ccr <= SERVO_MIN)
-		  {
-			  flag = 1;
-		  }
-		  double angle = SG90_CCRToANGLE(ccr);
-		  float current_angle_deg = angle;
+                // 2. 모터 스윕 로직
+                if(flag) {
+                    ccr += 10;
+                } else {
+                    ccr -= 10;
+                }
 
-		  // 2. x,y cal and send can.
-		  Calculate_Target_Position(tof_dis, 45.0);
+                if(ccr >= SERVO_MAX) flag = 0;
+                else if(ccr <= SERVO_MIN) flag = 1;
 
-//		  printf("angle: %f\n", angle);
-		  HAL_Delay(300);
-		  break;
-	  }
+                __HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_2, ccr);
 
-	  case DET_CMD_STANDBY : // ??�?? 모드
-	  {
+                // 3. 현재 각도 계산 및 전송
+                double angle = SG90_CCRToANGLE(ccr);
+                float current_angle_deg = (float)angle;
 
+                // 💡 중요: 고정값 45.0 대신 실제 계산된 각도를 보냅니다.
+                Calculate_Target_Position(tof_dis, current_angle_deg);
 
-		  break;
-	  }
+                HAL_Delay(100); // 탐색 주기 100ms
+                break;
+            }
 
-	  case DET_CMD_RESET : // 리셋 모드.
-	  {
-		  NVIC_SystemReset();
-		  break;
-	  }
-	  }
+            // ---------------------------------------------------------
+            // CASE 4: 리셋
+            // ---------------------------------------------------------
+            case DET_CMD_RESET:
+            {
+                NVIC_SystemReset();
+                break;
+            }
+
+            default:
+                // 예상치 못한 값이 들어오면 안전하게 대기모드로 전환
+                g_SystemMode = DET_CMD_STANDBY;
+                break;
+        }
+      /* USER CODE END WHILE */
+
+      /* USER CODE BEGIN 3 */
+    }
+    /* USER CODE END 3 */
   }
-  /* USER CODE END 3 */
-}
 
 /**
   * @brief System Clock Configuration
