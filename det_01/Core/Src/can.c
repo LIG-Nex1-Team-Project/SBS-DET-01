@@ -23,7 +23,10 @@ void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan) {
     if (HAL_CAN_GetRxMessage(hcan, CAN_RX_FIFO0, &RxHeader, RxData) == HAL_OK) {
 
         if(RxHeader.ExtId == 0x00000100) { // ECS
-
+        	// 💡 [추가] LD2(PA5) LED 깜빡이기
+			HAL_GPIO_TogglePin(GPIOA, GPIO_PIN_5);
+        	// 💡 [추가] ECS로부터 명령 수신 시 출력
+			printf("[CAN RX] ECS Mode Command: %d\n", RxData[0]);
         	// start cmd receive
         	g_SystemMode = RxData[0];
         }
@@ -71,15 +74,13 @@ void Calculate_Target_Position(float distance_mm, float current_angle_deg)
 	}
 }
 
-
-
 void canInit()
 {
 
 	// can 필터 설정.
 	CAN_FilterTypeDef sFilterConfig;
 	uint32_t filter_id = 0x00000100;      // 내가 받고 싶은 ID
-	uint32_t filter_mask = 0x1FFFFFFF;    // 29비트 모든 자리를 다 검사하겠다 (정확히 일치해야 함)
+	uint32_t filter_mask = 0x00000000;    // 29비트 모든 자리를 다 검사하겠다 (정확히 일치해야 함)
 
 	sFilterConfig.FilterBank = 0;
 	sFilterConfig.FilterMode = CAN_FILTERMODE_IDMASK;
